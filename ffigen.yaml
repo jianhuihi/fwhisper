@@ -1,0 +1,22 @@
+# Run with `flutter pub run ffigen --config ffigen.yaml`.
+name: FWhisperBindings
+description: |
+  Bindings for `src/flutter_whisper_cpp.h`.
+
+  Regenerate bindings with `dart run ffigen --config ffigen.yaml`.
+output: 'lib/fwhisper_bindings_generated.dart'
+headers:
+  entry-points:
+    - 'src/fwhisper.h'
+    - 'src/whisper.cpp/whisper.h'
+  include-directives:
+    - 'src/fwhisper.h'
+    - 'src/whisper.cpp/whisper.h'
+
+preamble: |
+  // ignore_for_file: always_specify_types
+  // ignore_for_file: camel_case_types
+  // ignore_for_file: non_constant_identifier_names
+comments:
+  style: any
+  length: full
