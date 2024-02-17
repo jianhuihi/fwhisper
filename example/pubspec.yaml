@@ -33,6 +33,10 @@ dependencies:
   path_provider: ^2.0.2
   file_picker: ^6.1.1
   http: ^0.13.3
+  dio: ^4.0.0 # 检查最新版本并使用
+  path: ^1.8.0
+  file_selector: ^1.0.2
+
 
   fwhisper:
     # When depending on this package from a real application you should use:
