@@ -1,0 +1,9 @@
+[submodule "macos/whisper.cpp"]
+	path = macos/whisper.cpp
+	url = https://github.com/ggerganov/whisper.cpp.git
+[submodule "src/whisper.cpp"]
+	path = src/whisper.cpp
+	url = https://github.com/ggerganov/whisper.cpp.git
+[submodule "src/ios-cmake"]
+	path = src/ios-cmake
+	url = https://github.com/leetal/ios-cmake.git
