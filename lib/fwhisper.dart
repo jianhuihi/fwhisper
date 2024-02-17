@@ -4,11 +4,9 @@ import 'dart:io';
 import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 
-
 import 'package:flutter/foundation.dart';
 
 import 'fwhisper_bindings_generated.dart';
-
 
 String toTimestamp(int t, {bool comma = false}) {
   t = t * 10;
@@ -20,10 +18,8 @@ String toTimestamp(int t, {bool comma = false}) {
   String minutes = twoDigits(duration.inMinutes.remainder(60));
   String seconds = twoDigits(duration.inSeconds.remainder(60));
   String millis = threeDigits(duration.inMilliseconds.remainder(1000));
-
   return "$hours:$minutes:$seconds${comma ? ',' : '.'}$millis";
 }
-
 
 Pointer<whisper_context>? whisperCtxPtr;
 
@@ -53,7 +49,7 @@ Stream<String> _generateResponse({
 
   int stereo = 0;
 
-  debugPrint('[Whisper.AI] start pcmf32: ${pcmf32.value}, pcmf32Length: ${pcmf32Length}, stereo: $stereo');
+  debugPrint('[Whisper.AI] start pcmf32: ${pcmf32.value}, stereo: $stereo');
 
   //Float32List pcmf32List = pcmf32.asTypedList(MAX_PCMF32_LENGTH);
   // debugPrint("pcmf32 before calling C/C++: $pcmf32List");
@@ -84,14 +80,13 @@ Stream<String> _generateResponse({
   final Pointer<Char> audioPath = audioFile.toNativeUtf8().cast<Char>();
   debugPrint('[Whisper.AI] audioPath: $audioPath');
 
-  final whisper_full_params params = whisperCpp.whisper_full_default_params(whisper_sampling_strategy.WHISPER_SAMPLING_GREEDY);
+  final whisper_full_params params =
+      whisperCpp.whisper_full_default_params(whisper_sampling_strategy.WHISPER_SAMPLING_GREEDY);
   params.language = "en".toNativeUtf8().cast<Char>();
-
 
   debugPrint('[Whisper.AI] whisper_full_default_params(...)');
 
   //whisperCpp.whisper_print_system_info();
-
 
   //whisperCpp.whisper_print_timings(whisperCtxPtr);
 
@@ -111,13 +106,10 @@ Stream<String> _generateResponse({
     debugPrint('[Whisper.AI] text: $text');
     debugPrint('[Whisper.AI] t0: $t0Str');
     debugPrint('[Whisper.AI] t1: $t1Str');
+    yield text; // 将识别到的文本发送出去
   }
 
-  //final Pointer<whisper_result> whisperResultPtr = whisperCpp.whisper_run(whisperCtxPtr, audioPath);
-  debugPrint('[Whisper.AI] whisper_run(...)');
-
   whisperCpp.whisper_print_timings(whisperCtxPtr);
-
 
   calloc.free(pcmf32); // Freeing the pointer after using it
   calloc.free(pcmf32Length);
@@ -206,7 +198,7 @@ class _WhisperRequest {
   const _WhisperRequest(this.id, this.modelFile, this.audioFile);
 }
 
-/// A response with the result of `sum`.
+/// A response with the result of ``.
 ///
 /// Typically sent from one isolate to another.
 class _WhisperResponse {
@@ -239,8 +231,10 @@ Future<SendPort> _helperIsolateSendPort = () async {
         return;
       }
       if (data is _WhisperResponse) {
+        debugPrint('data.id: ${data.id}, data.result: ${data.result}');
         // The helper isolate sent us a response to a request we sent.
         final Completer<void> completer = _whisperRequests[data.id]!;
+        _onTokenGenerated!(data.result);
         _whisperRequests.remove(data.id);
         completer.complete();
         return;
@@ -249,9 +243,7 @@ Future<SendPort> _helperIsolateSendPort = () async {
       if (_onTokenGenerated == null) {
         throw Exception('onTokenGeneratedGlobal is null');
       }
-
-      _onTokenGenerated!(data.result);
-
+      
       throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
     });
 
@@ -267,13 +259,11 @@ Future<SendPort> _helperIsolateSendPort = () async {
           ).listen((String lastToken) {
             // Because we're using streams, we can't send the last token of the
             // response back to the main isolate directly. Instead, we send it
-            // back in a _PromptBatchOutput object.
             final _WhisperResponse replyByAssistant = _WhisperResponse(
               data.id,
               lastToken,
             );
-
-            // Send the _PromptBatchOutput back to the main isolate.
+            debugPrint('replyByAssistant: ${replyByAssistant.result}');
             sendPort.send(replyByAssistant);
           });
           return;

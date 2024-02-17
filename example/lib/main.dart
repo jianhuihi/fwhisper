@@ -192,13 +192,16 @@ class _MyAppState extends State<MyApp> {
                     //把 ggml-base.en.bin 读取并 保存到 Downloads/models 目录下 并返回对应路径
                     //String modelPath = await saveModelFileToDownloads();
 
-                    fwhisper.talkAsync(
+                    await fwhisper.talkAsync(
                       modelFile: modelPath!,
                       audioFile: audioPath,
                       onTokenGenerated: (token) {
+                        print("teeest");
                         debugPrint('token: $token');
                       },
                     );
+                    debugPrint('result:');
+            
                   },
                   child: const Text('Run inference'),
                 ),
