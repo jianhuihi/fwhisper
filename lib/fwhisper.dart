@@ -231,17 +231,17 @@ Future<SendPort> _helperIsolateSendPort = () async {
         return;
       }
       if (data is _WhisperResponse) {
+        // 判断结束条件 
         debugPrint('data.id: ${data.id}, data.result: ${data.result}');
+        if (_onTokenGenerated == null) {
+          throw Exception('onTokenGeneratedGlobal is null');
+        }
+        _onTokenGenerated!(data.result);
         // The helper isolate sent us a response to a request we sent.
         final Completer<void> completer = _whisperRequests[data.id]!;
-        _onTokenGenerated!(data.result);
         _whisperRequests.remove(data.id);
         completer.complete();
         return;
-      }
-
-      if (_onTokenGenerated == null) {
-        throw Exception('onTokenGeneratedGlobal is null');
       }
       
       throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
