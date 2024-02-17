@@ -1,6 +1,7 @@
 #include "fwhisper.h"
 
 #include "whisper.cpp/whisper.h"
+#include "whisper.cpp/whisper.cpp"
 
 #define DR_WAV_IMPLEMENTATION
 #include "whisper.cpp/examples/dr_wav.h"

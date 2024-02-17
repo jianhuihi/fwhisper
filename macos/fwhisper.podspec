@@ -19,6 +19,7 @@ A new Flutter FFI plugin project Whisper.
   # `../src/*` so that the C sources can be shared among all target platforms.
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*',
+                       # 'whisper.cpp/whisper.cpp',
                         'whisper.cpp/ggml.c', 
                         'whisper.cpp/ggml-quants.c', 
                         'whisper.cpp/ggml-backend.c', 
@@ -26,7 +27,7 @@ A new Flutter FFI plugin project Whisper.
                         'whisper.cpp/ggml-metal.m'
   s.frameworks = 'Foundation', 'Metal', 'MetalKit'
   s.dependency 'FlutterMacOS'
-  s.vendored_libraries = 'Frameworks/libfwhisper.dylib', 'Frameworks/libwhisper.dylib'
+  # s.vendored_libraries = 'Frameworks/libfwhisper.dylib', 'Frameworks/libwhisper.dylib'
 
   s.platform = :osx, '10.14'
   s.pod_target_xcconfig = {
