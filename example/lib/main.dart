@@ -129,12 +129,17 @@ class _MyAppState extends State<MyApp> {
     //把 ggml-base.en.bin 读取并 保存到 Downloads/models 目录下 并返回对应路径
     String modelPath = await saveModelFileToDownloads();
 
-    fwhisper.talkAsync(
-      modelFile: modelPath,
-      audioFile: audioPath,
-      onTokenGenerated: (token) {
-        debugPrint('token: $token');
-      },
+    fwhisper.fWhisperTranscriptionAsync(
+      fwhisper.FwhisperInferenceRequest(
+        modelFile: modelPath,
+        audioFile: audioPath,
+      ),
+      (result) {
+        debugPrint('result: $result');
+        setState(() {
+          latestResult = result;
+        });
+      } as fwhisper.FwhisperInferenceCallback,
     );
   }
 
@@ -192,13 +197,17 @@ class _MyAppState extends State<MyApp> {
                     //把 ggml-base.en.bin 读取并 保存到 Downloads/models 目录下 并返回对应路径
                     //String modelPath = await saveModelFileToDownloads();
 
-                    await fwhisper.talkAsync(
-                      modelFile: modelPath!,
-                      audioFile: audioPath,
-                      onTokenGenerated: (token) {
-                        print("teeest");
-                        debugPrint('token: $token');
-                      },
+                    await fwhisper.fWhisperTranscriptionAsync(
+                      fwhisper.FwhisperInferenceRequest(
+                        modelFile: modelPath!,
+                        audioFile: audioPath,
+                      ),
+                      (result) {
+                        debugPrint('result: $result');
+                        setState(() {
+                          latestResult = result;
+                        });
+                      } as fwhisper.FwhisperInferenceCallback,
                     );
                     debugPrint('result:');
             
