@@ -14,7 +14,7 @@ import 'package:fwhisper/fns/fwhisper_io_helpers.dart';
 
 Pointer<whisper_context>? whisperCtxPtr;
 
-Stream<_IsolateInferenceResponse> _generateResponse({
+Stream<WhisperResponse> _generateResponse({
   required String modelFile,
   required String audioFile,
 }) async* {
@@ -77,7 +77,7 @@ Stream<_IsolateInferenceResponse> _generateResponse({
 
     bool done = false;
     done = (i == nsegments - 1);
-    _IsolateInferenceResponse response = _IsolateInferenceResponse(i, text, done);
+    WhisperResponse response = WhisperResponse(nsegments:i, t0:t0, t1:t1, response: text, done: done);
     yield response; // 将识别到的文本发送出去
   }
 
@@ -122,10 +122,13 @@ class _IsolateInferenceRequest {
 /// Typically sent from one isolate to another.
 class _IsolateInferenceResponse {
   final int id;
+  final int nsegments;
+  final int t0;
+  final int t1;
   final String response;
   final bool done;
 
-  const _IsolateInferenceResponse(this.id, this.response, this.done);
+  const _IsolateInferenceResponse(this.id, this.nsegments, this.t0, this.t1, this.response, this.done);
 }
 
 /// Counter to identify [_IsolateInferenceRequest]s and [_IsolateInferenceResponse]s.
@@ -156,7 +159,7 @@ Future<SendPort> _helperIsolateSendPort = () async {
       if (data is _IsolateInferenceResponse) {
         final callback = _isolateInferenceCallbacks[data.id];
         if (callback != null) {
-          callback(data.response, data.done);
+          callback(data.nsegments, data.t0, data.t1, data.response, data.done);
         }
         if (data.done) {
           _isolateInferenceCallbacks.remove(data.id);
@@ -186,15 +189,17 @@ Future<SendPort> _helperIsolateSendPort = () async {
           _generateResponse(
             modelFile: data.request.modelFile,
             audioFile: data.request.audioFile,
-          ).listen((_IsolateInferenceResponse wshisperResponse) {
+          ).listen((WhisperResponse wshisperResponse) {
             // Because we're using streams, we can't send the last token of the
             // response back to the main isolate directly. Instead, we send it
             final _IsolateInferenceResponse replyByAssistant = _IsolateInferenceResponse(
               data.id,
+              wshisperResponse.nsegments,
+              wshisperResponse.t0,
+              wshisperResponse.t1,
               wshisperResponse.response,
               wshisperResponse.done,
             );
-            debugPrint('replyByAssistant: ${replyByAssistant.response}, done: ${replyByAssistant.done}');
             sendPort.send(replyByAssistant);
           });
           return;

@@ -7,7 +7,7 @@ import 'dart:io';
 
 import 'package:fwhisper/fwhisper_bindings_generated.dart';
 
-typedef FwhisperInferenceCallback = void Function(String response, bool done);
+typedef FwhisperInferenceCallback = void Function(int nsegments, int t0, int t1, String response, bool done);
 
 const String fwhisperLibName = 'fwhisper';
 
