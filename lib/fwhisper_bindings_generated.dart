@@ -8,6 +8,23 @@
 // ignore_for_file: type=lint
 import 'dart:ffi' as ffi;
 
+
+// 定义一个与原生侧匹配的函数类型
+typedef WhisperPrintSegmentCallbackNative = ffi.Void Function(
+  ffi.Pointer<whisper_context>,
+  ffi.Pointer<whisper_state>,
+  ffi.Int32,
+  ffi.Pointer<ffi.Void>
+);
+
+// Dart 侧的函数类型
+typedef WhisperPrintSegmentCallbackDart = void Function(
+  ffi.Pointer<whisper_context>,
+  ffi.Pointer<whisper_state>,
+  int,
+  ffi.Pointer<ffi.Void>
+);
+
 /// Bindings for `src/flutter_whisper_cpp.h`.
 ///
 /// Regenerate bindings with `dart run ffigen --config ffigen.yaml`.
@@ -2402,7 +2419,7 @@ abstract class ggml_log_level {
 
 const int COMMON_SAMPLE_RATE = 16000;
 
-const int MAX_PCMF32_LENGTH = 1000000;
+const int MAX_PCMF32_LENGTH = 100000000; // 自定义
 
 const int WHISPER_SAMPLE_RATE = 16000;
 

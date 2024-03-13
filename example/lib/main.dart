@@ -117,32 +117,6 @@ class _MyAppState extends State<MyApp> {
     return targetFile.path;
   }
 
-  Future<void> initializeAsyncData() async {
-    // 异步加载数据或执行其他异步操作
-    var data = await getTemporaryDirectoryPath();
-    debugPrint('data: $data');
-    var data2 = await getDocumentsPath();
-    debugPrint('data2: $data2');
-    //把 jfk.wav 读取并 保存到 Documents 目录下 并返回对应路径
-    String audioPath = await saveFileToDocuments();
-    debugPrint('path: $audioPath');
-    //把 ggml-base.en.bin 读取并 保存到 Downloads/models 目录下 并返回对应路径
-    String modelPath = await saveModelFileToDownloads();
-
-    fwhisper.fWhisperTranscriptionAsync(
-      fwhisper.FwhisperInferenceRequest(
-        modelFile: modelPath,
-        audioFile: audioPath,
-      ),
-      (result) {
-        debugPrint('result: $result');
-        setState(() {
-          latestResult = result;
-        });
-      } as fwhisper.FwhisperInferenceCallback,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     const textStyle = TextStyle(fontSize: 14);
@@ -158,18 +132,18 @@ class _MyAppState extends State<MyApp> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ElevatedButton.icon(
-                  onPressed: saveModelFileToDownloads,
-                  icon: const Icon(Icons.download_sharp),
-                  label: const Text('down  .bin'),
-                ),
-                spacerSmall,
-                LinearProgressIndicator(
-                  value: downloadProgress,
-                  backgroundColor: Colors.grey[300],
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-                ),
-                spacerSmall,
+                // ElevatedButton.icon(
+                //   onPressed: saveModelFileToDownloads,
+                //   icon: const Icon(Icons.download_sharp),
+                //   label: const Text('down  .bin'),
+                // ),
+                // spacerSmall,
+                // LinearProgressIndicator(
+                //   value: downloadProgress,
+                //   backgroundColor: Colors.grey[300],
+                //   valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                // ),
+                // spacerSmall,
                 ElevatedButton.icon(
                   onPressed: _openGgufPressed,
                   icon: const Icon(Icons.file_open),
@@ -196,20 +170,22 @@ class _MyAppState extends State<MyApp> {
                     debugPrint('path: $audioPath');
                     //把 ggml-base.en.bin 读取并 保存到 Downloads/models 目录下 并返回对应路径
                     //String modelPath = await saveModelFileToDownloads();
+                    // 获取视频时长
+                    //final videoDuration = await getVideoDuration(videoPath);
 
                     await fwhisper.fWhisperTranscriptionAsync(
                       fwhisper.FwhisperInferenceRequest(
                         modelFile: modelPath!,
                         audioFile: audioPath,
+                        videoDuration: const Duration(seconds: 10),
                       ),
-                      (result) {
-                        debugPrint('result: $result');
+                      (t, t0, t1, result, done ) {
+                        debugPrint('result: $t0, $t1, $result');
                         setState(() {
                           latestResult = result;
                         });
                       } as fwhisper.FwhisperInferenceCallback,
                     );
-                    debugPrint('result:');
             
                   },
                   child: const Text('Run inference'),

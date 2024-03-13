@@ -120,6 +120,44 @@ bool read_wav(const std::string & fname, std::vector<float>& pcmf32, std::vector
 }
 
 
+
+// void whisper_print_segment_callback(struct whisper_context * ctx, struct whisper_state * /*state*/, int n_new, void * user_data) {
+//     const auto & params  = *((whisper_print_user_data *) user_data)->params;
+//     const auto & pcmf32s = *((whisper_print_user_data *) user_data)->pcmf32s;
+
+//     const int n_segments = whisper_full_n_segments(ctx);
+
+//     std::string speaker = "";
+
+//     int64_t t0 = 0;
+//     int64_t t1 = 0;
+
+//     // print the last n_new segments
+//     const int s0 = n_segments - n_new;
+
+//     if (s0 == 0) {
+//         printf("\n");
+//     }
+
+//     for (int i = s0; i < n_segments; i++) {
+//         if (!params.no_timestamps || params.diarize) {
+//             t0 = whisper_full_get_segment_t0(ctx, i);
+//             t1 = whisper_full_get_segment_t1(ctx, i);
+//         }
+
+//         if (!params.no_timestamps) {
+//             printf("[%s --> %s]  ", to_timestamp(t0).c_str(), to_timestamp(t1).c_str());
+//         }
+      
+//         const char * text = whisper_full_get_segment_text(ctx, i);
+
+//         printf("%s%s", speaker.c_str(), text);
+
+//         fflush(stdout);
+//     }
+// }
+
+
 extern "C" {
     bool c_read_wav(const char* fname, float* pcmf32, size_t* pcmf32_len, float** pcmf32s, size_t* pcmf32s_len, bool stereo) {
         std::string fname_str(fname);

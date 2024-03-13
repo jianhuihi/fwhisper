@@ -1,10 +1,12 @@
 class FwhisperInferenceRequest {
   String modelFile;
   String audioFile;
+  Duration videoDuration;
 
   FwhisperInferenceRequest({
     required this.modelFile,
     required this.audioFile,
+    required this.videoDuration,
   });
    
 }

@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'dart:ffi';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 
 import 'package:ffi/ffi.dart';
+
 import 'package:fwhisper/fwhisper_io.dart';
 import 'package:fwhisper/fwhisper_bindings_generated.dart';
 import 'package:fwhisper/fwhisper_inference_request.dart';
@@ -13,14 +15,64 @@ import 'package:fwhisper/fwhisper_inference_request.dart';
 import 'package:fwhisper/fns/fwhisper_io_helpers.dart';
 
 Pointer<whisper_context>? whisperCtxPtr;
+final FWhisperBindings whisperCpp = whisperBindings;
+final StreamController<WhisperResponse> _responseController = StreamController<WhisperResponse>.broadcast();
 
-Stream<WhisperResponse> _generateResponse({
+StreamSubscription<WhisperResponse>? _subscription;
+
+// 原生函数类型定义
+typedef WhisperPrintSegmentCallbackNative = Void Function(
+  Pointer<whisper_context>,
+  Pointer<whisper_state>,
+  Int,
+  Pointer<Void>,
+);
+
+// Dart回调函数类型
+typedef WhisperPrintSegmentCallbackDart = void Function(
+  Pointer<whisper_context>,
+  Pointer<whisper_state>,
+  int,
+  Pointer<Void>,
+);
+
+// Dart侧的回调函数实现
+void myWhisperPrintSegmentCallback(
+  Pointer<whisper_context> whisperCtxPtr,
+  Pointer<whisper_state> state,
+  int nNew,
+  Pointer<Void> userData,
+) {
+  // 在这里处理回调逻辑
+  int nsegments = whisperCpp.whisper_full_n_segments(whisperCtxPtr);
+  for (int i = 0; i < nsegments; ++i) {
+    Pointer<Utf8> textPtr = whisperCpp.whisper_full_get_segment_text(whisperCtxPtr, i).cast<Utf8>();
+    int t0 = whisperCpp.whisper_full_get_segment_t0(whisperCtxPtr, i);
+    int t1 = whisperCpp.whisper_full_get_segment_t1(whisperCtxPtr, i);
+    String text = textPtr.toDartString();
+    String t0Str = toTimestamp(t0, comma: true);
+    String t1Str = toTimestamp(t1, comma: true);
+    debugPrint('[Whisper.AI] n_segments text: $text');
+    debugPrint('[Whisper.AI] t0: $t0Str');
+    debugPrint('[Whisper.AI] t1: $t1Str');
+    bool done = false;
+    done = (i == nsegments - 1);
+    WhisperResponse response = WhisperResponse(nsegments: i, t0: t0, t1: t1, response: text, done: done);
+    _responseController.add(response);
+  }
+}
+
+late Pointer<NativeFunction<WhisperPrintSegmentCallbackNative>> callbackPointer;
+
+Future<void> _generateResponse({
   required String modelFile,
   required String audioFile,
-}) async* {
-  final FWhisperBindings whisperCpp = whisperBindings;
+  required Duration videoDuration,
+}) async {
+  // 启动时先加载模型文件
   Pointer<Char> fname = audioFile.toNativeUtf8().cast<Char>();
   debugPrint('[Whisper.AI] fname: $fname');
+  // 这里获取文件的长度 然后再申请内存
   final Pointer<Float> pcmf32 = calloc<Float>(MAX_PCMF32_LENGTH);
   final Pointer<Size> pcmf32Length = calloc<Size>(1); // 分配内存
   const int rows = 1;
@@ -35,56 +87,54 @@ Stream<WhisperResponse> _generateResponse({
 
   int stereo = 0;
   debugPrint('[Whisper.AI] start pcmf32: ${pcmf32.value}, stereo: $stereo');
-  //Float32List pcmf32List = pcmf32.asTypedList(MAX_PCMF32_LENGTH);
-  // debugPrint("pcmf32 before calling C/C++: $pcmf32List");
   int t = whisperCpp.c_read_wav(fname, pcmf32, pcmf32Length, pcmf32s, pcmf32sLength, stereo);
   // whisperCpp.whisper_full(whisperCtxPtr, params);
   debugPrint('[Whisper.AI] read_wav(...), t: $t');
-  // // // 调用C/C++函数之后，检查pcmf32的内容
-  // Float32List pcmf32List = pcmf32.asTypedList(1000);
-  // debugPrint("pcmf32 after calling C/C++: $pcmf32List");
-  // Check if the file exists
   debugPrint("[Whisper.AI] AI model file path loading from: $modelFile");
   final File file = File(modelFile);
   if (!file.existsSync()) {
     throw Exception('File does not exist: $modelFile');
   }
   final Pointer<Char> modelPath = modelFile.toNativeUtf8().cast<Char>();
-  final Pointer<whisper_context> whisperCtxPtr = whisperCpp.whisper_init_from_file(modelPath);
-  debugPrint('[Whisper.AI] whisperCtxPtr: $whisperCtxPtr');
-  final Pointer<Char> audioPath = audioFile.toNativeUtf8().cast<Char>();
-  debugPrint('[Whisper.AI] audioPath: $audioPath');
-  final whisper_full_params params =
-      whisperCpp.whisper_full_default_params(whisper_sampling_strategy.WHISPER_SAMPLING_GREEDY);
-  params.language = "zh".toNativeUtf8().cast<Char>();
-  debugPrint('[Whisper.AI] whisper_full_default_params(...)');
-  if (whisperCpp.whisper_full(whisperCtxPtr, params, pcmf32, pcmf32Length.value) != 0) {
-    debugPrint('[Whisper.AI] whisper_full(...)');
-  }
-  int nsegments = whisperCpp.whisper_full_n_segments(whisperCtxPtr);
-  debugPrint('[Whisper.AI] whisper_full_n_segments(), nsegments: $nsegments');
-  for (int i = 0; i < nsegments; ++i) {
-    Pointer<Utf8> textPtr = whisperCpp.whisper_full_get_segment_text(whisperCtxPtr, i).cast<Utf8>();
-    int t0 = whisperCpp.whisper_full_get_segment_t0(whisperCtxPtr, i);
-    int t1 = whisperCpp.whisper_full_get_segment_t1(whisperCtxPtr, i);
-    String text = textPtr.toDartString();
-    String t0Str = toTimestamp(t0, comma: true);
-    String t1Str = toTimestamp(t1, comma: true);
-    debugPrint('[Whisper.AI] whisper_full_get_segment_text(...)');
-    debugPrint('[Whisper.AI] text: $text');
-    debugPrint('[Whisper.AI] t0: $t0Str');
-    debugPrint('[Whisper.AI] t1: $t1Str');
+  // 记录加载的时间
+  final Stopwatch stopwatch = Stopwatch()..start();
 
-    bool done = false;
-    done = (i == nsegments - 1);
-    WhisperResponse response = WhisperResponse(nsegments:i, t0:t0, t1:t1, response: text, done: done);
-    yield response; // 将识别到的文本发送出去
+  final whisper_context_params cparams = whisperCpp.whisper_context_default_params();
+
+  cparams.use_gpu = true;
+  // Load the model
+  final Pointer<whisper_context> whisperCtxPtr = whisperCpp.whisper_init_from_file_with_params(modelPath, cparams);
+  // initialize openvino encoder. this has no effect on whisper.cpp builds that don't have OpenVINO configured
+  whisperCpp.whisper_ctx_init_openvino_encoder(whisperCtxPtr, nullptr, "CPU".toNativeUtf8().cast<Char>(), nullptr);
+  debugPrint(whisperCpp.whisper_print_system_info().cast<Utf8>().toDartString());
+  // 执行时间
+  debugPrint('[Whisper.AI] whisper_init_from_file_with_params(...), elapsed: ${stopwatch.elapsedMilliseconds} ms');
+
+  // wparams.new_segment_callback = Pointer.fromFunction<whisper_new_segment_callback>(whisperPrintSegmentCallback);
+  {
+    callbackPointer = Pointer.fromFunction<WhisperPrintSegmentCallbackNative>(
+      myWhisperPrintSegmentCallback,
+    );
+    final whisper_full_params wparams =
+        whisperCpp.whisper_full_default_params(whisper_sampling_strategy.WHISPER_SAMPLING_GREEDY);
+    // wparams.max_len = 1; // 目前还不起作用呢
+    wparams.language = "en".toNativeUtf8().cast<Char>();
+    // wparams.strategy = whisper_sampling_strategy.WHISPER_SAMPLING_BEAM_SEARCH;
+    // wparams.n_threads = 4;
+    wparams.print_realtime = false;
+    if (!wparams.print_realtime) {
+      // Pointer<NativeFunction<Void Function(Pointer<whisper_context>, Pointer<whisper_state>, Int, Pointer<Void>)>> new_segment_callback
+      wparams.new_segment_callback = callbackPointer;
+      //wparams.new_segment_callback_user_data = &user_data;
+    }
+    debugPrint('[Whisper.AI] whisper_full_params, elapsed: ${stopwatch.elapsedMilliseconds} ms');
+    if (whisperCpp.whisper_full_parallel(whisperCtxPtr, wparams, pcmf32, pcmf32Length.value, 1) != 0) {
+      debugPrint('[Whisper.AI] failed to process audio');
+    }
   }
 
-  debugPrint('[Whisper.AI] whisper_full end');
+  debugPrint('[Whisper.AI] whisper_full_parallel,  end elapsed: ${stopwatch.elapsedMilliseconds} ms');
   whisperCpp.whisper_print_timings(whisperCtxPtr);
-  debugPrint('[Whisper.AI] whisper_print_timings end');
-
   whisperCpp.whisper_free(whisperCtxPtr);
   calloc.free(pcmf32); // Freeing the pointer after using it
   calloc.free(pcmf32Length);
@@ -109,7 +159,6 @@ Future<String> fwhisperInferenceAsync(FwhisperInferenceRequest request, Fwhisper
   return completer.future;
 }
 
-/// A request to compute `sum`.
 ///
 /// Typically sent from one isolate to another.
 class _IsolateInferenceRequest {
@@ -163,8 +212,7 @@ Future<SendPort> _helperIsolateSendPort = () async {
         }
         if (data.done) {
           _isolateInferenceCallbacks.remove(data.id);
-          final Completer<String> completer =
-              _isolateInferenceRequests[data.id]!;
+          final Completer<String> completer = _isolateInferenceRequests[data.id]!;
           completer.complete(data.response);
           _isolateInferenceRequests.remove(data.id);
           return;
@@ -177,40 +225,35 @@ Future<SendPort> _helperIsolateSendPort = () async {
 
   // Start the helper isolate.
   await Isolate.spawn((SendPort sendPort) async {
-    final ReceivePort helperReceivePort = ReceivePort()
-      ..listen((dynamic data) {
-        try {
-          // On the helper isolate listen to requests and respond to them.
-          if (data is! _IsolateInferenceRequest) {
-            throw UnsupportedError('Unsupported message type: ${data.runtimeType}');
-          }
-
-          /// 请求数据
-          _generateResponse(
-            modelFile: data.request.modelFile,
-            audioFile: data.request.audioFile,
-          ).listen((WhisperResponse wshisperResponse) {
-            // Because we're using streams, we can't send the last token of the
-            // response back to the main isolate directly. Instead, we send it
-            final _IsolateInferenceResponse replyByAssistant = _IsolateInferenceResponse(
-              data.id,
-              wshisperResponse.nsegments,
-              wshisperResponse.t0,
-              wshisperResponse.t1,
-              wshisperResponse.response,
-              wshisperResponse.done,
-            );
-            sendPort.send(replyByAssistant);
-          });
-          return;
-        } catch (e, s) {
-          // ignore: avoid_print
-          print('[fwhisper inference isolate] ERROR: $e. STACK: $s');
-        }
-      });
+    final ReceivePort helperReceivePort = ReceivePort();
+    sendPort.send(helperReceivePort.sendPort);
+    
+    helperReceivePort.listen((dynamic data) async {
+      if (data is _IsolateInferenceRequest) {
+        // 等待 500 毫秒,以确保主 isolate 已经准备好接收数据
+        await Future.delayed(Duration(milliseconds: 500));
+        // 监听_generateResponse产生的流
+        _subscription = _responseController.stream.listen((WhisperResponse response) {
+          debugPrint('[Whisper.AI] _responseController.stream  response: ${response.response}');
+          final _IsolateInferenceResponse isolateResponse = _IsolateInferenceResponse(
+            data.id,
+            response.nsegments,
+            response.t0,
+            response.t1,
+            response.response,
+            response.done,
+          );
+          sendPort.send(isolateResponse);
+        });
+        await _generateResponse(
+          modelFile: data.request.modelFile,
+          audioFile: data.request.audioFile,
+          videoDuration: data.request.videoDuration,
+        );
+      }
+    });
 
     // Send the port to the main isolate on which we can receive requests.
-    sendPort.send(helperReceivePort.sendPort);
   }, receivePort.sendPort);
 
   // Wait until the helper isolate has sent us back the SendPort on which we
