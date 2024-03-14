@@ -2196,7 +2196,7 @@ final class whisper_full_params extends ffi.Struct {
   /// called for every newly generated text segment
   external whisper_new_segment_callback new_segment_callback;
 
-  external ffi.Pointer<ffi.Void> new_segment_callback_user_data;
+  external ffi.Pointer<ffi.Int> new_segment_callback_user_data;
 
   /// called on each progress update
   external whisper_progress_callback progress_callback;
@@ -2266,7 +2266,7 @@ typedef whisper_new_segment_callback = ffi.Pointer<
             ffi.Pointer<whisper_context> ctx,
             ffi.Pointer<whisper_state> state,
             ffi.Int n_new,
-            ffi.Pointer<ffi.Void> user_data)>>;
+            ffi.Pointer<ffi.Int> user_data)>>;
 
 /// Progress callback
 typedef whisper_progress_callback = ffi.Pointer<

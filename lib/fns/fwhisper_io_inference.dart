@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
-
 import 'dart:ffi';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 
 import 'package:ffi/ffi.dart';
-
 import 'package:fwhisper/fwhisper_io.dart';
 import 'package:fwhisper/fwhisper_bindings_generated.dart';
 import 'package:fwhisper/fwhisper_inference_request.dart';
@@ -16,16 +13,13 @@ import 'package:fwhisper/fns/fwhisper_io_helpers.dart';
 
 Pointer<whisper_context>? whisperCtxPtr;
 final FWhisperBindings whisperCpp = whisperBindings;
-final StreamController<WhisperResponse> _responseController = StreamController<WhisperResponse>.broadcast();
-
-StreamSubscription<WhisperResponse>? _subscription;
 
 // 原生函数类型定义
 typedef WhisperPrintSegmentCallbackNative = Void Function(
   Pointer<whisper_context>,
   Pointer<whisper_state>,
   Int,
-  Pointer<Void>,
+  Pointer<Int>,
 );
 
 // Dart回调函数类型
@@ -33,7 +27,7 @@ typedef WhisperPrintSegmentCallbackDart = void Function(
   Pointer<whisper_context>,
   Pointer<whisper_state>,
   int,
-  Pointer<Void>,
+  Pointer<Int>,
 );
 
 // Dart侧的回调函数实现
@@ -41,14 +35,24 @@ void myWhisperPrintSegmentCallback(
   Pointer<whisper_context> whisperCtxPtr,
   Pointer<whisper_state> state,
   int nNew,
-  Pointer<Void> userData,
+  Pointer<Int> userData,
 ) {
-  // 在这里处理回调逻辑
+  int dataID = userData.value;
+  debugPrint('[Whisper.AI] myWhisperPrintSegmentCallback, nNew: $nNew, dataID: $dataID');
   int nsegments = whisperCpp.whisper_full_n_segments(whisperCtxPtr);
-  for (int i = 0; i < nsegments; ++i) {
+  int t0 = 0;
+  int t1 = 0;
+  int s0 = nsegments - nNew;
+  if (s0 == 0) {
+    debugPrint("[Whisper.AI] s0 == 0 \n");
+  }
+  // 在这里处理回调逻辑
+  debugPrint('[Whisper.AI] nsegments: $nsegments');
+  for (int i = s0; i < nsegments; ++i) {
+    t0 = whisperCpp.whisper_full_get_segment_t0(whisperCtxPtr, i);
+    t1 = whisperCpp.whisper_full_get_segment_t1(whisperCtxPtr, i);
+    // 获取文本
     Pointer<Utf8> textPtr = whisperCpp.whisper_full_get_segment_text(whisperCtxPtr, i).cast<Utf8>();
-    int t0 = whisperCpp.whisper_full_get_segment_t0(whisperCtxPtr, i);
-    int t1 = whisperCpp.whisper_full_get_segment_t1(whisperCtxPtr, i);
     String text = textPtr.toDartString();
     String t0Str = toTimestamp(t0, comma: true);
     String t1Str = toTimestamp(t1, comma: true);
@@ -56,9 +60,20 @@ void myWhisperPrintSegmentCallback(
     debugPrint('[Whisper.AI] t0: $t0Str');
     debugPrint('[Whisper.AI] t1: $t1Str');
     bool done = false;
-    done = (i == nsegments - 1);
     WhisperResponse response = WhisperResponse(nsegments: i, t0: t0, t1: t1, response: text, done: done);
-    _responseController.add(response);
+    try {
+      final _IsolateInferenceResponse isolateResponse = _IsolateInferenceResponse(
+        dataID,
+        response.nsegments,
+        response.t0,
+        response.t1,
+        response.response,
+        response.done,
+      );
+      _isolateSendPort.send(isolateResponse); // 将 WhisperResponse 对象直接发送到主isolate
+    } catch (e) {
+      debugPrint('Error sending response: $e');
+    }
   }
 }
 
@@ -68,7 +83,10 @@ Future<void> _generateResponse({
   required String modelFile,
   required String audioFile,
   required Duration videoDuration,
+  required int dataID,
 }) async {
+  final Pointer<Int> userData = calloc<Int>();
+  userData.value = dataID; // 假设 dataID 是你想传递给回调的数据
   // 启动时先加载模型文件
   Pointer<Char> fname = audioFile.toNativeUtf8().cast<Char>();
   debugPrint('[Whisper.AI] fname: $fname');
@@ -122,10 +140,11 @@ Future<void> _generateResponse({
     // wparams.strategy = whisper_sampling_strategy.WHISPER_SAMPLING_BEAM_SEARCH;
     // wparams.n_threads = 4;
     wparams.print_realtime = false;
+    wparams.debug_mode = true;
+
     if (!wparams.print_realtime) {
-      // Pointer<NativeFunction<Void Function(Pointer<whisper_context>, Pointer<whisper_state>, Int, Pointer<Void>)>> new_segment_callback
       wparams.new_segment_callback = callbackPointer;
-      //wparams.new_segment_callback_user_data = &user_data;
+      wparams.new_segment_callback_user_data = userData;
     }
     debugPrint('[Whisper.AI] whisper_full_params, elapsed: ${stopwatch.elapsedMilliseconds} ms');
     if (whisperCpp.whisper_full_parallel(whisperCtxPtr, wparams, pcmf32, pcmf32Length.value, 1) != 0) {
@@ -140,6 +159,7 @@ Future<void> _generateResponse({
   calloc.free(pcmf32Length);
   calloc.free(pcmf32s);
   calloc.free(pcmf32sLength);
+  calloc.free(userData);
 }
 
 // This callback type will be used in Dart to receive incremental results
@@ -164,7 +184,6 @@ Future<String> fwhisperInferenceAsync(FwhisperInferenceRequest request, Fwhisper
 class _IsolateInferenceRequest {
   final int id;
   final FwhisperInferenceRequest request;
-
   const _IsolateInferenceRequest(this.id, this.request);
 }
 
@@ -188,6 +207,9 @@ int _nextInferenceRequestId = 0;
 final Map<int, Completer<String>> _isolateInferenceRequests = <int, Completer<String>>{};
 final Map<int, FwhisperInferenceCallback> _isolateInferenceCallbacks = <int, FwhisperInferenceCallback>{};
 
+// The SendPort belonging to the helper isolate.
+late SendPort _isolateSendPort;
+
 /// The SendPort belonging to the helper isolate.
 Future<SendPort> _helperIsolateSendPort = () async {
   // The helper isolate is going to send us back a SendPort, which we want to
@@ -202,12 +224,16 @@ Future<SendPort> _helperIsolateSendPort = () async {
     ..listen((dynamic data) {
       if (data is SendPort) {
         // The helper isolate sent us the port on which we can sent it requests.
+        debugPrint('[fwhisper] Received SendPort from helper isolate');
         completer.complete(data);
         return;
       }
+
+      debugPrint('[fwhisper] Received message from helper isolate: $data');
       if (data is _IsolateInferenceResponse) {
         final callback = _isolateInferenceCallbacks[data.id];
         if (callback != null) {
+          debugPrint('[fwhisper] Received response for request ${data.done}');
           callback(data.nsegments, data.t0, data.t1, data.response, data.done);
         }
         if (data.done) {
@@ -227,28 +253,14 @@ Future<SendPort> _helperIsolateSendPort = () async {
   await Isolate.spawn((SendPort sendPort) async {
     final ReceivePort helperReceivePort = ReceivePort();
     sendPort.send(helperReceivePort.sendPort);
-    
     helperReceivePort.listen((dynamic data) async {
       if (data is _IsolateInferenceRequest) {
-        // 等待 500 毫秒,以确保主 isolate 已经准备好接收数据
-        await Future.delayed(Duration(milliseconds: 500));
-        // 监听_generateResponse产生的流
-        _subscription = _responseController.stream.listen((WhisperResponse response) {
-          debugPrint('[Whisper.AI] _responseController.stream  response: ${response.response}');
-          final _IsolateInferenceResponse isolateResponse = _IsolateInferenceResponse(
-            data.id,
-            response.nsegments,
-            response.t0,
-            response.t1,
-            response.response,
-            response.done,
-          );
-          sendPort.send(isolateResponse);
-        });
+        _isolateSendPort = sendPort;
         await _generateResponse(
           modelFile: data.request.modelFile,
           audioFile: data.request.audioFile,
           videoDuration: data.request.videoDuration,
+          dataID: data.id,
         );
       }
     });

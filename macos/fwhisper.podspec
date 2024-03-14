@@ -11,13 +11,13 @@ Pod::Spec.new do |s|
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*', 'whisper.cpp/{ggml.c,ggml-quants.c,ggml-backend.c,ggml-alloc.c,ggml-metal.m}'
   s.exclude_files    = 'bindings', 'cmake', 'coreml', 'examples', 'extra', 'models', 'samples', 'tests', 'CMakeLists.txt', 'ggml-cuda.cu', 'ggml-cuda.h', 'Makefile'
-  s.frameworks       = 'Foundation', 'Metal', 'MetalKit'
+  s.frameworks       = 'Foundation', 'Metal', 'MetalKit', 'Accelerate'
   s.dependency       'FlutterMacOS'
   s.platform         = :osx, '10.14'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    'OTHER_CFLAGS' => ['$(inherited)', '-O3', '-flto', '-fno-objc-arc'],
-    'OTHER_CPLUSPLUSFLAGS' => ['$(inherited)', '-O3', '-flto', '-fno-objc-arc'],
+    'OTHER_CFLAGS' => ['$(inherited)', '-Wno-shorten-64-to-32', '-O3', '-flto', '-fno-objc-arc'],
+    'OTHER_CPLUSPLUSFLAGS' => ['$(inherited)', '-Wno-shorten-64-to-32', '-O3', '-flto', '-fno-objc-arc'],
     'GCC_PREPROCESSOR_DEFINITIONS' => ['$(inherited)', 'GGML_USE_METAL=1'],
   }
   s.swift_version    = '5.0'
