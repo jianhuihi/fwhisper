@@ -154,7 +154,7 @@ Future<void> _generateResponse({
 
   final whisper_context_params cparams = whisperCpp.whisper_context_default_params();
 
-  cparams.use_gpu = false;
+  cparams.use_gpu = true;
   // Load the model
   final Pointer<whisper_context> whisperCtxPtr = whisperCpp.whisper_init_from_file_with_params(modelPath, cparams);
   // initialize openvino encoder. this has no effect on whisper.cpp builds that don't have OpenVINO configured
