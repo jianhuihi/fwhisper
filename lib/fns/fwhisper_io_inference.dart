@@ -2,9 +2,15 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ffi';
 import 'dart:isolate';
+
 import 'package:flutter/foundation.dart';
 
+
 import 'package:ffi/ffi.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter/return_code.dart';
+
+
 import 'package:fwhisper/fwhisper_io.dart';
 import 'package:fwhisper/fwhisper_bindings_generated.dart';
 import 'package:fwhisper/fwhisper_inference_request.dart';
@@ -19,7 +25,7 @@ typedef WhisperPrintSegmentCallbackNative = Void Function(
   Pointer<whisper_context>,
   Pointer<whisper_state>,
   Int,
-  Pointer<Int>,
+  Pointer<UserData>,
 );
 
 // Dart回调函数类型
@@ -27,7 +33,7 @@ typedef WhisperPrintSegmentCallbackDart = void Function(
   Pointer<whisper_context>,
   Pointer<whisper_state>,
   int,
-  Pointer<Int>,
+  Pointer<UserData>,
 );
 
 // Dart侧的回调函数实现
@@ -35,10 +41,9 @@ void myWhisperPrintSegmentCallback(
   Pointer<whisper_context> whisperCtxPtr,
   Pointer<whisper_state> state,
   int nNew,
-  Pointer<Int> userData,
+  Pointer<UserData> userData,
 ) {
-  int dataID = userData.value;
-  debugPrint('[Whisper.AI] myWhisperPrintSegmentCallback, nNew: $nNew, dataID: $dataID');
+  int dataID = userData.ref.dataID;
   int nsegments = whisperCpp.whisper_full_n_segments(whisperCtxPtr);
   int t0 = 0;
   int t1 = 0;
@@ -46,8 +51,9 @@ void myWhisperPrintSegmentCallback(
   if (s0 == 0) {
     debugPrint("[Whisper.AI] s0 == 0 \n");
   }
+
+  debugPrint('[Whisper.AI] userData.ref.videoDuration: ${userData.ref.videoDuration}');
   // 在这里处理回调逻辑
-  debugPrint('[Whisper.AI] nsegments: $nsegments');
   for (int i = s0; i < nsegments; ++i) {
     t0 = whisperCpp.whisper_full_get_segment_t0(whisperCtxPtr, i);
     t1 = whisperCpp.whisper_full_get_segment_t1(whisperCtxPtr, i);
@@ -60,6 +66,9 @@ void myWhisperPrintSegmentCallback(
     debugPrint('[Whisper.AI] t0: $t0Str');
     debugPrint('[Whisper.AI] t1: $t1Str');
     bool done = false;
+
+
+    // 判断结束标志
     WhisperResponse response = WhisperResponse(nsegments: i, t0: t0, t1: t1, response: text, done: done);
     try {
       final _IsolateInferenceResponse isolateResponse = _IsolateInferenceResponse(
@@ -77,6 +86,35 @@ void myWhisperPrintSegmentCallback(
   }
 }
 
+
+
+// Future<int> getVideoDuration(String videoFilePath) async {
+//   // ffprobe command to get video duration
+//   String command = '-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $videoFilePath';
+
+//   try {
+//     // Execute ffprobe command
+//     final session = await FFmpegKit.execute(command);
+//     final returnCode = await session.getReturnCode();
+
+//     if (ReturnCode.isSuccess(returnCode)) {
+//       // Get the command output, which contains the video duration in seconds
+//       final String? output = await session.getOutput();
+//       print("Video duration: $output seconds");
+//       // Parse the duration to a double, then convert to milliseconds and return as int
+//       final durationInSeconds = double.parse(output!.trim());
+//       return (durationInSeconds * 1000).round();
+//     } else {
+//       print("Error retrieving video duration.");
+//     }
+//   } on FormatException catch (e) {
+//     print("Error parsing video duration: $e");
+//   } catch (e) {
+//     print("Error executing ffprobe command: $e");
+//   }
+//   return 0; // Return a default value in case of failure
+// }
+
 late Pointer<NativeFunction<WhisperPrintSegmentCallbackNative>> callbackPointer;
 
 Future<void> _generateResponse({
@@ -85,8 +123,13 @@ Future<void> _generateResponse({
   required Duration videoDuration,
   required int dataID,
 }) async {
-  final Pointer<Int> userData = calloc<Int>();
-  userData.value = dataID; // 假设 dataID 是你想传递给回调的数据
+
+  debugPrint('[Whisper.AI] audioFile: $audioFile');
+  int videoDuration = 100;
+  debugPrint('[Whisper.AI] videoDuration: $videoDuration');
+  final Pointer<UserData> userData = calloc<UserData>();
+  userData.ref.videoDuration = videoDuration; // Assuming you want to initialize it to 0
+  userData.ref.dataID = dataID; // Replace with actual data ID you want to use
   // 启动时先加载模型文件
   Pointer<Char> fname = audioFile.toNativeUtf8().cast<Char>();
   debugPrint('[Whisper.AI] fname: $fname');
@@ -130,6 +173,8 @@ Future<void> _generateResponse({
 
   // wparams.new_segment_callback = Pointer.fromFunction<whisper_new_segment_callback>(whisperPrintSegmentCallback);
   {
+
+    
     callbackPointer = Pointer.fromFunction<WhisperPrintSegmentCallbackNative>(
       myWhisperPrintSegmentCallback,
     );
@@ -224,7 +269,6 @@ Future<SendPort> _helperIsolateSendPort = () async {
     ..listen((dynamic data) {
       if (data is SendPort) {
         // The helper isolate sent us the port on which we can sent it requests.
-        debugPrint('[fwhisper] Received SendPort from helper isolate');
         completer.complete(data);
         return;
       }
@@ -233,7 +277,6 @@ Future<SendPort> _helperIsolateSendPort = () async {
       if (data is _IsolateInferenceResponse) {
         final callback = _isolateInferenceCallbacks[data.id];
         if (callback != null) {
-          debugPrint('[fwhisper] Received response for request ${data.done}');
           callback(data.nsegments, data.t0, data.t1, data.response, data.done);
         }
         if (data.done) {
@@ -262,6 +305,16 @@ Future<SendPort> _helperIsolateSendPort = () async {
           videoDuration: data.request.videoDuration,
           dataID: data.id,
         );
+
+        //   final _IsolateInferenceResponse isolateResponse = _IsolateInferenceResponse(
+        //   data.id,
+        //   0,
+        //   0,
+        //   0,
+        //   '',
+        //   true,
+        // );
+        // _isolateSendPort.send(isolateResponse); // 将 WhisperResponse 对象直接发送到主isolate
       }
     });
 

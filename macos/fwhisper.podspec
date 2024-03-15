@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
   s.exclude_files    = 'bindings', 'cmake', 'coreml', 'examples', 'extra', 'models', 'samples', 'tests', 'CMakeLists.txt', 'ggml-cuda.cu', 'ggml-cuda.h', 'Makefile'
   s.frameworks       = 'Foundation', 'Metal', 'MetalKit', 'Accelerate'
   s.dependency       'FlutterMacOS'
-  s.platform         = :osx, '10.14'
+  s.platform         = :osx, '11.0'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'OTHER_CFLAGS' => ['$(inherited)', '-Wno-shorten-64-to-32', '-O3', '-flto', '-fno-objc-arc'],

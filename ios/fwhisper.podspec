@@ -28,7 +28,7 @@ A new Flutter FFI plugin project Whisper.
   s.dependency 'Flutter'
   # s.vendored_libraries = 'Frameworks/libfwhisper.dylib', 'Frameworks/libwhisper.dylib'
 
-  s.platform = :ios, '15.0'
+  s.platform = :ios, '14.0'
   s.pod_target_xcconfig = {
   'DEFINES_MODULE' => 'YES',
   'USER_HEADER_SEARCH_PATHS' => ['$(PODS_TARGET_SRCROOT)/../whisper.cpp/**/*.h', '$(PODS_TARGET_SRCROOT)/../whisper.cpp/common/**/*.h'],

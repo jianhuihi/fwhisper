@@ -9,6 +9,19 @@
 import 'dart:ffi' as ffi;
 
 
+// final class UserData extends ffi.Struct {
+//   external ffi.Pointer<ffi.Int32> videoDuration;
+//   external ffi.Pointer<ffi.Int32> dataID;
+// }
+
+final class UserData extends ffi.Struct {
+  @ffi.Int32()
+  external int videoDuration;
+  
+  @ffi.Int32()
+  external int dataID;
+}
+
 // 定义一个与原生侧匹配的函数类型
 typedef WhisperPrintSegmentCallbackNative = ffi.Void Function(
   ffi.Pointer<whisper_context>,
@@ -2196,7 +2209,7 @@ final class whisper_full_params extends ffi.Struct {
   /// called for every newly generated text segment
   external whisper_new_segment_callback new_segment_callback;
 
-  external ffi.Pointer<ffi.Int> new_segment_callback_user_data;
+  external ffi.Pointer<UserData> new_segment_callback_user_data;
 
   /// called on each progress update
   external whisper_progress_callback progress_callback;
@@ -2266,7 +2279,7 @@ typedef whisper_new_segment_callback = ffi.Pointer<
             ffi.Pointer<whisper_context> ctx,
             ffi.Pointer<whisper_state> state,
             ffi.Int n_new,
-            ffi.Pointer<ffi.Int> user_data)>>;
+            ffi.Pointer<UserData> user_data)>>;
 
 /// Progress callback
 typedef whisper_progress_callback = ffi.Pointer<
