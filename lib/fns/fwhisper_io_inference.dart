@@ -45,6 +45,9 @@ void myWhisperPrintSegmentCallback(
   }
 
   debugPrint('[Whisper.AI] userData.ref.videoDuration: ${userData.ref.videoDuration}');
+
+  bool done = false;
+
   // 在这里处理回调逻辑
   for (int i = s0; i < nsegments; ++i) {
     t0 = whisperCpp.whisper_full_get_segment_t0(whisperCtxPtr, i);
@@ -57,8 +60,16 @@ void myWhisperPrintSegmentCallback(
     debugPrint('[Whisper.AI] n_segments text: $text');
     debugPrint('[Whisper.AI] t0: $t0Str');
     debugPrint('[Whisper.AI] t1: $t1Str');
-    bool done = false;
 
+    Duration duration = Duration(milliseconds: t1 * 10);
+
+    // 计算两个时间的差值（毫秒）
+    int difference = (duration.inMilliseconds - userData.ref.videoDuration).abs();
+    debugPrint('[Whisper.AI] difference: $difference');
+    // 检查差值是否小于2000毫秒
+    if (difference < 2000) {
+      done = true;
+    }
 
     // 判断结束标志
     WhisperResponse response = WhisperResponse(nsegments: i, t0: t0, t1: t1, response: text, done: done);
@@ -78,35 +89,6 @@ void myWhisperPrintSegmentCallback(
   }
 }
 
-
-
-// Future<int> getVideoDuration(String videoFilePath) async {
-//   // ffprobe command to get video duration
-//   String command = '-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $videoFilePath';
-
-//   try {
-//     // Execute ffprobe command
-//     final session = await FFmpegKit.execute(command);
-//     final returnCode = await session.getReturnCode();
-
-//     if (ReturnCode.isSuccess(returnCode)) {
-//       // Get the command output, which contains the video duration in seconds
-//       final String? output = await session.getOutput();
-//       print("Video duration: $output seconds");
-//       // Parse the duration to a double, then convert to milliseconds and return as int
-//       final durationInSeconds = double.parse(output!.trim());
-//       return (durationInSeconds * 1000).round();
-//     } else {
-//       print("Error retrieving video duration.");
-//     }
-//   } on FormatException catch (e) {
-//     print("Error parsing video duration: $e");
-//   } catch (e) {
-//     print("Error executing ffprobe command: $e");
-//   }
-//   return 0; // Return a default value in case of failure
-// }
-
 late Pointer<NativeFunction<WhisperPrintSegmentCallbackNative>> callbackPointer;
 
 Future<void> _generateResponse({
@@ -115,12 +97,13 @@ Future<void> _generateResponse({
   required Duration videoDuration,
   required int dataID,
 }) async {
-
   debugPrint('[Whisper.AI] audioFile: $audioFile');
-  int videoDuration = 100;
+  int durationInMilliseconds = videoDuration.inMilliseconds;
+
+  //int videoDuration = 100;
   debugPrint('[Whisper.AI] videoDuration: $videoDuration');
   final Pointer<UserData> userData = calloc<UserData>();
-  userData.ref.videoDuration = videoDuration; // Assuming you want to initialize it to 0
+  userData.ref.videoDuration = durationInMilliseconds; // Assuming you want to initialize it to 0
   userData.ref.dataID = dataID; // Replace with actual data ID you want to use
   // 启动时先加载模型文件
   Pointer<Char> fname = audioFile.toNativeUtf8().cast<Char>();
@@ -165,8 +148,6 @@ Future<void> _generateResponse({
 
   // wparams.new_segment_callback = Pointer.fromFunction<whisper_new_segment_callback>(whisperPrintSegmentCallback);
   {
-
-    
     callbackPointer = Pointer.fromFunction<WhisperPrintSegmentCallbackNative>(
       myWhisperPrintSegmentCallback,
     );

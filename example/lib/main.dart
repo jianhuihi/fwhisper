@@ -10,6 +10,9 @@ import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as path;
 import 'package:fwhisper/fwhisper.dart' as fwhisper;
 
+import 'package:video_player/video_player.dart';
+
+
 Future<String> getTemporaryDirectoryPath() async {
   final directory = await getTemporaryDirectory();
   return directory.path;
@@ -31,6 +34,7 @@ Future<String> saveFileToDocuments() async {
 }
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized(); // 确保Flutter绑定初始化
   runApp(const MyApp());
 }
 
@@ -51,6 +55,15 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
   }
+
+  // 异步方法，获取视频时长
+Future<Duration> getVideoDuration(String videoFile) async {
+  final VideoPlayerController controller = VideoPlayerController.file(File(videoFile));
+  await controller.initialize();
+  final Duration duration = controller.value.duration;
+  controller.dispose(); // 使用完毕后释放控制器资源
+  return duration;
+}
 
   Future<void> downloadFile(String model, [String? modelsPath]) async {
     // 设置代理
@@ -171,16 +184,16 @@ class _MyAppState extends State<MyApp> {
                     //把 ggml-base.en.bin 读取并 保存到 Downloads/models 目录下 并返回对应路径
                     //String modelPath = await saveModelFileToDownloads();
                     // 获取视频时长
-                    //final videoDuration = await getVideoDuration(videoPath);
+                    final videoDuration = await getVideoDuration(audioPath);
 
                     await fwhisper.fWhisperTranscriptionAsync(
                       fwhisper.FwhisperInferenceRequest(
                         modelFile: modelPath!,
                         audioFile: audioPath,
-                        videoDuration: const Duration(seconds: 10),
+                        videoDuration: videoDuration,
                       ),
                       (t, t0, t1, result, done ) {
-                        debugPrint('result: $t0, $t1, $result');
+                        debugPrint('result: $t0, $t1, $result, $done');
                         setState(() {
                           latestResult = result;
                         });

@@ -30,11 +30,10 @@ A new Flutter FFI plugin project Whisper.
 
   s.platform = :ios, '14.0'
   s.pod_target_xcconfig = {
-  'DEFINES_MODULE' => 'YES',
-  'USER_HEADER_SEARCH_PATHS' => ['$(PODS_TARGET_SRCROOT)/../whisper.cpp/**/*.h', '$(PODS_TARGET_SRCROOT)/../whisper.cpp/common/**/*.h'],
-  'OTHER_CFLAGS' => ['$(inherited)', '-O3', '-flto', '-fno-objc-arc'],
-  'OTHER_CPLUSPLUSFLAGS' => ['$(inherited)', '-O3', '-flto', '-fno-objc-arc'],
-  'GCC_PREPROCESSOR_DEFINITIONS' => ['$(inherited)', 'GGML_USE_METAL=1'],
+    'DEFINES_MODULE' => 'YES',
+    'OTHER_CFLAGS' => ['$(inherited)',  '-O3', '-flto', '-DNDEBUG', '-std=c11',  '-fPIC', '-D_XOPEN_SOURCE=600', '-D_DARWIN_C_SOURCE', '-pthread','-mavx', '-mavx2','-mfma', '-mf16c', '-msse3', '-mssse3', '-fno-objc-arc'],
+    'OTHER_CPLUSPLUSFLAGS' => ['$(inherited)','-O3', '-flto','-DNDEBUG', '-fPIC',  '-D_XOPEN_SOURCE=600', '-D_DARWIN_C_SOURCE', '-pthread','-mavx', '-mavx2','-mfma', '-mf16c', '-msse3', '-mssse3', '-std=c++11', '-fno-objc-arc'],
+    'GCC_PREPROCESSOR_DEFINITIONS' => ['$(inherited)', 'GGML_USE_METAL=1', 'DACCELERATE_NEW_LAPACK', 'DACCELERATE_LAPACK_ILP64'],
   }
   s.swift_version = '5.0'
 
