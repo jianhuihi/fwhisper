@@ -2,19 +2,11 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ffi';
 import 'dart:isolate';
-
 import 'package:flutter/foundation.dart';
-
-
 import 'package:ffi/ffi.dart';
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter/return_code.dart';
-
-
 import 'package:fwhisper/fwhisper_io.dart';
 import 'package:fwhisper/fwhisper_bindings_generated.dart';
 import 'package:fwhisper/fwhisper_inference_request.dart';
-
 import 'package:fwhisper/fns/fwhisper_io_helpers.dart';
 
 Pointer<whisper_context>? whisperCtxPtr;
@@ -162,7 +154,7 @@ Future<void> _generateResponse({
 
   final whisper_context_params cparams = whisperCpp.whisper_context_default_params();
 
-  cparams.use_gpu = true;
+  cparams.use_gpu = false;
   // Load the model
   final Pointer<whisper_context> whisperCtxPtr = whisperCpp.whisper_init_from_file_with_params(modelPath, cparams);
   // initialize openvino encoder. this has no effect on whisper.cpp builds that don't have OpenVINO configured

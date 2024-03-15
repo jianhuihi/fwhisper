@@ -16,8 +16,8 @@ Pod::Spec.new do |s|
   s.platform         = :osx, '11.0'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    'OTHER_CFLAGS' => ['$(inherited)', '-Wno-shorten-64-to-32', '-O3', '-flto', '-fno-objc-arc'],
-    'OTHER_CPLUSPLUSFLAGS' => ['$(inherited)', '-Wno-shorten-64-to-32', '-O3', '-flto', '-fno-objc-arc'],
+    'OTHER_CFLAGS' => ['$(inherited)', '-Wno-shorten-64-to-32', '-O3', '-flto', '-DNDEBUG', '-std=c11',  '-fPIC', '-D_XOPEN_SOURCE=600', '-D_DARWIN_C_SOURCE', '-pthread','-mavx', '-mavx2','-mfma', '-mf16c', '-msse3', '-mssse3', '-fno-objc-arc'],
+    'OTHER_CPLUSPLUSFLAGS' => ['$(inherited)', '-Wno-shorten-64-to-32', '-O3', '-flto','-DNDEBUG', '-fPIC',  '-D_XOPEN_SOURCE=600', '-D_DARWIN_C_SOURCE', '-pthread','-mavx', '-mavx2','-mfma', '-mf16c', '-msse3', '-mssse3', '-std=c++11', '-fno-objc-arc'],
     'GCC_PREPROCESSOR_DEFINITIONS' => ['$(inherited)', 'GGML_USE_METAL=1'],
   }
   s.swift_version    = '5.0'

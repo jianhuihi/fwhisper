@@ -12,7 +12,6 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
-  ffmpeg_kit_flutter: ^6.0.3
 
 
 dev_dependencies:

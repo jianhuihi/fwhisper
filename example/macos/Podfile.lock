@@ -1,11 +1,4 @@
 PODS:
-  - ffmpeg-kit-macos-https (6.0)
-  - ffmpeg_kit_flutter (6.0.3):
-    - ffmpeg_kit_flutter/https (= 6.0.3)
-    - FlutterMacOS
-  - ffmpeg_kit_flutter/https (6.0.3):
-    - ffmpeg-kit-macos-https (= 6.0)
-    - FlutterMacOS
   - file_selector_macos (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
@@ -16,19 +9,12 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
-  - ffmpeg_kit_flutter (from `Flutter/ephemeral/.symlinks/plugins/ffmpeg_kit_flutter/macos`)
   - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - fwhisper (from `Flutter/ephemeral/.symlinks/plugins/fwhisper/macos`)
   - path_provider_foundation (from `Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin`)
 
-SPEC REPOS:
-  trunk:
-    - ffmpeg-kit-macos-https
-
 EXTERNAL SOURCES:
-  ffmpeg_kit_flutter:
-    :path: Flutter/ephemeral/.symlinks/plugins/ffmpeg_kit_flutter/macos
   file_selector_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos
   FlutterMacOS:
@@ -39,11 +25,9 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/path_provider_foundation/darwin
 
 SPEC CHECKSUMS:
-  ffmpeg-kit-macos-https: 60de703db964ccca7fd0d4d1611f4c102a8139cc
-  ffmpeg_kit_flutter: 5bd75928cf88ec177cea410b027681e4bfe09452
   file_selector_macos: 468fb6b81fac7c0e88d71317f3eec34c3b008ff9
   FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
-  fwhisper: 5ecf76fc18ce8b08d16a3f3bbc50c6d6210f09ad
+  fwhisper: 9944657cb1c07e3396362ac855460c12ac415c76
   path_provider_foundation: 3784922295ac71e43754bd15e0653ccfd36a147c
 
 PODFILE CHECKSUM: c2e95c8c0fe03c5c57e438583cae4cc732296009
