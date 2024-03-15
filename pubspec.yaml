@@ -12,8 +12,6 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
-  video_player: ^2.8.3
-
 
 dev_dependencies:
   ffigen: ^9.0.1
